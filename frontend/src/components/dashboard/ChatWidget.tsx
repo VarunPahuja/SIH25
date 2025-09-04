@@ -1,71 +1,44 @@
 import React, { useState } from 'react';
-import { MessageCircle, Minimize2, Maximize2, X, Send, Menu } from 'lucide-react';
+import { MessageCircle, Minimize2, Maximize2, X, Send, Menu, Volume2, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useChat } from '@/hooks/useChat';
 import { cn } from '@/lib/utils';
 
 type ChatState = 'floating' | 'docked' | 'fullscreen';
-
-interface Message {
-  id: string;
-  text: string;
-  sender: 'user' | 'bot';
-  timestamp: Date;
-}
-
-interface ChatHistory {
-  id: string;
-  title: string;
-  lastMessage: string;
-}
 
 const ChatWidget = () => {
   const isMobile = useIsMobile();
   const [chatState, setChatState] = useState<ChatState>('floating');
   const [message, setMessage] = useState('');
   const [showTooltip, setShowTooltip] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: "Hi! I'm Manny, your SLCM assistant. How can I help you today?",
-      sender: 'bot',
-      timestamp: new Date()
-    }
-  ]);
-  const [chatHistories] = useState<ChatHistory[]>([
-    { id: '1', title: 'Library Inquiry', lastMessage: 'Book availability question' },
-    { id: '2', title: 'Exam Schedule', lastMessage: 'When is my final exam?' },
-    { id: '3', title: 'Counselling', lastMessage: 'Career guidance session' },
-    { id: '4', title: 'Fee Payment', lastMessage: 'Payment deadline query' },
-    { id: '5', title: 'Course Registration', lastMessage: 'How to add electives?' },
-  ]);
   const [showSidebar, setShowSidebar] = useState(true);
 
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        text: message,
-        sender: 'user',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, newMessage]);
+  // Use our custom chat hook
+  const {
+    messages,
+    isLoading,
+    error,
+    currentConversationId,
+    isConnected,
+    threads,
+    sendMessage: sendChatMessage,
+    loadThread,
+    createNewThread,
+    clearChat,
+    clearError,
+    playAudio,
+  } = useChat({ userId: 'demo_user_frontend' });
+
+  const handleSendMessage = async () => {
+    if (message.trim() && !isLoading) {
+      await sendChatMessage(message);
       setMessage('');
-      
-      // Simulate bot response after a short delay
-      setTimeout(() => {
-        const botResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          text: `Thank you for your message: "${message}". I'm here to help with any SLCM related queries!`,
-          sender: 'bot',
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, botResponse]);
-      }, 1000);
     }
   };
 
@@ -73,6 +46,27 @@ const ChatWidget = () => {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  const handleThreadSelect = async (conversationId: string) => {
+    await loadThread(conversationId);
+    if (isMobile && showSidebar) {
+      setShowSidebar(false);
+    }
+  };
+
+  const handleNewChat = async () => {
+    await createNewThread();
+    if (isMobile && showSidebar) {
+      setShowSidebar(false);
+    }
+  };
+
+  const handleClearChat = () => {
+    clearChat();
+    if (isMobile && showSidebar) {
+      setShowSidebar(false);
     }
   };
 
@@ -87,15 +81,34 @@ const ChatWidget = () => {
         >
           <Button
             onClick={() => setChatState('docked')}
-            className="w-14 h-14 rounded-full bg-gradient-orange shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 group"
+            className={cn(
+              "w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 group relative",
+              isConnected 
+                ? "bg-gradient-orange" 
+                : "bg-gray-400 hover:bg-gray-500"
+            )}
           >
             <MessageCircle className="w-6 h-6 text-white group-hover:animate-pulse" />
+            {/* Connection Status Indicator */}
+            <div className={cn(
+              "absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-white",
+              isConnected ? "bg-green-500" : "bg-red-500"
+            )}>
+              {isConnected ? (
+                <Wifi className="w-2 h-2 text-white absolute top-0.5 left-0.5" />
+              ) : (
+                <WifiOff className="w-2 h-2 text-white absolute top-0.5 left-0.5" />
+              )}
+            </div>
           </Button>
           
           {/* Tooltip */}
           {showTooltip && (
             <div className="absolute bottom-16 right-0 bg-popover text-popover-foreground text-sm px-3 py-2 rounded-lg shadow-lg whitespace-nowrap animate-fade-in border border-border">
-              Chat with our chatbot Manny
+              <div>Chat with our chatbot Manny</div>
+              <div className="text-xs text-muted-foreground">
+                {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
+              </div>
               <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-popover"></div>
             </div>
           )}
@@ -118,18 +131,47 @@ const ChatWidget = () => {
             {showSidebar && (
               <div className="h-full flex flex-col">
                 <div className="p-4 border-b border-border">
-                  <h3 className="font-semibold text-card-foreground">Chat History</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-card-foreground">Chat History</h3>
+                    <Badge variant={isConnected ? "default" : "destructive"} className="text-xs">
+                      {isConnected ? 'Connected' : 'Offline'}
+                    </Badge>
+                  </div>
+                  <Button
+                    onClick={handleNewChat}
+                    className="w-full mt-2 text-xs h-8"
+                    disabled={!isConnected}
+                  >
+                    + New Chat
+                  </Button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-2">
-                  {chatHistories.map((chat) => (
+                  {threads.map((thread) => (
                     <button
-                      key={chat.id}
-                      className="w-full text-left p-3 rounded-lg hover:bg-secondary transition-colors duration-200 mb-2"
+                      key={thread.conversation_id}
+                      onClick={() => handleThreadSelect(thread.conversation_id)}
+                      className={cn(
+                        "w-full text-left p-3 rounded-lg hover:bg-secondary transition-colors duration-200 mb-2",
+                        currentConversationId === thread.conversation_id && "bg-secondary"
+                      )}
                     >
-                      <div className="font-medium text-sm text-card-foreground mb-1">{chat.title}</div>
-                      <div className="text-xs text-muted-foreground truncate">{chat.lastMessage}</div>
+                      <div className="font-medium text-sm text-card-foreground mb-1">{thread.title}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {thread.message_count} messages • {new Date(thread.updated_at).toLocaleDateString()}
+                      </div>
                     </button>
                   ))}
+                  {threads.length === 0 && isConnected && (
+                    <div className="text-center text-muted-foreground text-sm p-4">
+                      No conversations yet.<br />Start chatting to create your first thread!
+                    </div>
+                  )}
+                  {!isConnected && (
+                    <div className="text-center text-red-500 text-sm p-4">
+                      <AlertCircle className="w-4 h-4 mx-auto mb-2" />
+                      Unable to load conversations.<br />Check backend connection.
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -179,6 +221,20 @@ const ChatWidget = () => {
             {/* Chat Messages */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-4xl mx-auto space-y-4">
+                {/* Connection Error Alert */}
+                {error && (
+                  <Alert className="border-red-200 bg-red-50">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="flex items-center justify-between">
+                      <span>{error}</span>
+                      <Button onClick={clearError} variant="ghost" size="sm">
+                        Dismiss
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Messages */}
                 {messages.map((msg) => (
                   <div key={msg.id} className={cn(
                     "flex items-start space-x-3",
@@ -199,27 +255,135 @@ const ChatWidget = () => {
                         : "bg-primary text-primary-foreground rounded-tr-md"
                     )}>
                       <p className="text-sm">{msg.text}</p>
+                      
+                      {/* Sources */}
+                      {msg.sources && msg.sources.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <div className="text-xs font-semibold text-muted-foreground">Sources:</div>
+                          {msg.sources.map((source, idx) => (
+                            <div key={idx} className="text-xs bg-muted p-2 rounded">
+                              <a 
+                                href={source.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="font-medium text-blue-600 hover:underline"
+                              >
+                                {source.title}
+                              </a>
+                              <div className="text-muted-foreground mt-1">{source.snippet}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Audio Player */}
+                      {msg.audioUrl && (
+                        <div className="mt-3">
+                          <Button
+                            onClick={() => playAudio(msg.audioUrl!)}
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-xs"
+                          >
+                            <Volume2 className="w-3 h-3 mr-1" />
+                            Play Audio
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {/* Message Metadata */}
+                      {msg.flags && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          {msg.flags.confidence_score && (
+                            <span>Confidence: {Math.round(msg.flags.confidence_score * 100)}% • </span>
+                          )}
+                          {msg.flags.category && (
+                            <span>Category: {msg.flags.category} • </span>
+                          )}
+                          <span>{msg.timestamp.toLocaleTimeString()}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
+
+                {/* Loading Indicator */}
+                {isLoading && (
+                  <div className="flex items-start space-x-3">
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback className="bg-gradient-orange text-white text-sm font-semibold">
+                        M
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="bg-secondary rounded-2xl rounded-tl-md p-4">
+                      <div className="flex items-center space-x-2">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        </div>
+                        <span className="text-sm text-muted-foreground">Manny is thinking...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Message Input */}
             <div className="border-t border-border p-4 bg-card">
               <div className="max-w-4xl mx-auto">
+                {!isConnected && (
+                  <Alert className="mb-4 border-red-200 bg-red-50">
+                    <WifiOff className="h-4 w-4" />
+                    <AlertDescription>
+                      Not connected to backend server. Please check if the server is running on http://localhost:8000
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                {/* Quick Actions */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <Button
+                    onClick={handleClearChat}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7"
+                  >
+                    Clear Chat
+                  </Button>
+                  <Button
+                    onClick={handleNewChat}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7"
+                    disabled={!isConnected}
+                  >
+                    New Thread
+                  </Button>
+                  <Button
+                    onClick={() => window.open('http://localhost:8000/docs', '_blank')}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7"
+                  >
+                    API Docs
+                  </Button>
+                </div>
+
                 <div className="flex items-center space-x-3">
                   <Input
                     type="text"
-                    placeholder="Ask Manny anything about SLCM..."
+                    placeholder={isConnected ? "Ask Manny anything about SLCM..." : "Connect to backend to start chatting..."}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
                     className="flex-1 h-12"
+                    disabled={!isConnected || isLoading}
                   />
                   <Button
                     onClick={handleSendMessage}
-                    disabled={!message.trim()}
+                    disabled={!message.trim() || !isConnected || isLoading}
                     className="h-12 px-6 bg-gradient-orange"
                   >
                     <Send className="w-4 h-4" />
@@ -255,6 +419,9 @@ const ChatWidget = () => {
                 </AvatarFallback>
               </Avatar>
               <h3 className="font-semibold text-sm">Manny</h3>
+              <Badge variant={isConnected ? "default" : "destructive"} className="text-xs">
+                {isConnected ? '●' : '○'}
+              </Badge>
             </div>
             
             <div className="flex items-center space-x-1">
@@ -276,6 +443,21 @@ const ChatWidget = () => {
               </Button>
             </div>
           </div>
+
+          {/* Error Alert */}
+          {error && (
+            <div className="p-3 border-b border-border">
+              <Alert className="border-red-200 bg-red-50">
+                <AlertCircle className="h-3 w-3" />
+                <AlertDescription className="text-xs flex items-center justify-between">
+                  <span>{error}</span>
+                  <Button onClick={clearError} variant="ghost" size="sm" className="h-6 text-xs">
+                    ×
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
 
           {/* Chat Messages */}
           <div className="flex-1 p-4 overflow-y-auto min-h-[200px]">
@@ -299,10 +481,54 @@ const ChatWidget = () => {
                       ? "bg-secondary rounded-tl-sm" 
                       : "bg-primary text-primary-foreground rounded-tr-sm"
                   )}>
-                    {msg.text}
+                    <div>{msg.text}</div>
+                    
+                    {/* Audio Button for Mobile */}
+                    {msg.audioUrl && (
+                      <Button
+                        onClick={() => playAudio(msg.audioUrl!)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-1 mt-2 text-xs"
+                      >
+                        <Volume2 className="w-3 h-3 mr-1" />
+                        Audio
+                      </Button>
+                    )}
+                    
+                    {/* Metadata */}
+                    {msg.flags && (
+                      <div className="mt-2 text-[10px] text-muted-foreground">
+                        {msg.flags.confidence_score && (
+                          <span>{Math.round(msg.flags.confidence_score * 100)}% • </span>
+                        )}
+                        {msg.flags.category}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
+              
+              {/* Loading Indicator */}
+              {isLoading && (
+                <div className="flex items-start space-x-2">
+                  <Avatar className="w-6 h-6">
+                    <AvatarFallback className="bg-gradient-orange text-white text-xs font-semibold">
+                      M
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="bg-secondary rounded-lg rounded-tl-sm p-3">
+                    <div className="flex items-center space-x-1">
+                      <div className="flex space-x-1">
+                        <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                        <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      </div>
+                      <span className="text-xs text-muted-foreground">Thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -311,15 +537,16 @@ const ChatWidget = () => {
             <div className="flex items-center space-x-2">
               <Input
                 type="text"
-                placeholder="Type your message..."
+                placeholder={isConnected ? "Type your message..." : "Not connected..."}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 className="flex-1 h-10 text-sm"
+                disabled={!isConnected || isLoading}
               />
               <Button
                 onClick={handleSendMessage}
-                disabled={!message.trim()}
+                disabled={!message.trim() || !isConnected || isLoading}
                 size="icon"
                 className="h-10 w-10 bg-gradient-orange"
               >
@@ -345,6 +572,9 @@ const ChatWidget = () => {
               </AvatarFallback>
             </Avatar>
             <h3 className="font-semibold text-sm">Manny</h3>
+            <Badge variant={isConnected ? "default" : "destructive"} className="text-xs">
+              {isConnected ? '●' : '○'}
+            </Badge>
           </div>
           
           <div className="flex items-center space-x-1">
@@ -369,6 +599,21 @@ const ChatWidget = () => {
 
         {/* Chat Messages */}
         <CardContent className="p-0 flex flex-col h-full">
+          {/* Error Alert */}
+          {error && (
+            <div className="p-3 border-b border-border">
+              <Alert className="border-red-200 bg-red-50">
+                <AlertCircle className="h-3 w-3" />
+                <AlertDescription className="text-xs flex items-center justify-between">
+                  <span className="truncate">{error}</span>
+                  <Button onClick={clearError} variant="ghost" size="sm" className="h-5 text-xs ml-2">
+                    ×
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+
           <div className="flex-1 p-4 overflow-y-auto">
             <div className="space-y-3">
               {messages.map((msg) => (
@@ -390,10 +635,61 @@ const ChatWidget = () => {
                       ? "bg-secondary rounded-tl-sm" 
                       : "bg-primary text-primary-foreground rounded-tr-sm"
                   )}>
-                    {msg.text}
+                    <div>{msg.text}</div>
+                    
+                    {/* Audio Button */}
+                    {msg.audioUrl && (
+                      <Button
+                        onClick={() => playAudio(msg.audioUrl!)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-1 mt-2 text-xs"
+                      >
+                        <Volume2 className="w-3 h-3 mr-1" />
+                        Audio
+                      </Button>
+                    )}
+                    
+                    {/* Sources Indicator */}
+                    {msg.sources && msg.sources.length > 0 && (
+                      <div className="mt-2 text-[10px] text-blue-600">
+                        📚 {msg.sources.length} source{msg.sources.length > 1 ? 's' : ''}
+                      </div>
+                    )}
+                    
+                    {/* Metadata */}
+                    {msg.flags && (
+                      <div className="mt-2 text-[10px] text-muted-foreground">
+                        {msg.flags.confidence_score && (
+                          <span>{Math.round(msg.flags.confidence_score * 100)}% • </span>
+                        )}
+                        {msg.flags.category}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
+              
+              {/* Loading Indicator */}
+              {isLoading && (
+                <div className="flex items-start space-x-2">
+                  <Avatar className="w-6 h-6">
+                    <AvatarFallback className="bg-gradient-orange text-white text-xs font-semibold">
+                      M
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="bg-secondary rounded-lg rounded-tl-sm p-3">
+                    <div className="flex items-center space-x-1">
+                      <div className="flex space-x-1">
+                        <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                        <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      </div>
+                      <span className="text-xs text-muted-foreground">Thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -402,15 +698,16 @@ const ChatWidget = () => {
             <div className="flex items-center space-x-2">
               <Input
                 type="text"
-                placeholder="Type your message..."
+                placeholder={isConnected ? "Type your message..." : "Not connected..."}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 className="flex-1 h-8 text-sm"
+                disabled={!isConnected || isLoading}
               />
               <Button
                 onClick={handleSendMessage}
-                disabled={!message.trim()}
+                disabled={!message.trim() || !isConnected || isLoading}
                 size="icon"
                 className="h-8 w-8 bg-gradient-orange"
               >

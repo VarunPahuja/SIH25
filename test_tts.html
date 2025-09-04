@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS Audio Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .audio-controls {
+            margin: 10px 0;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 TTS Audio System Test</h1>
+        <p>Test the Text-to-Speech audio endpoints and playback functionality.</p>
+
+        <!-- Test 1: TTS Health Check -->
+        <div class="test-section">
+            <h3>1. TTS System Health Check</h3>
+            <button onclick="testTTSHealth()">Check TTS Health</button>
+            <div id="health-status"></div>
+        </div>
+
+        <!-- Test 2: Generate and Play Audio -->
+        <div class="test-section">
+            <h3>2. Generate and Play Audio</h3>
+            <input type="text" id="tts-text" placeholder="Enter text to convert to speech" value="Hello! This is a test of the campus chatbot TTS system." style="width: 100%; padding: 8px; margin: 10px 0;">
+            <br>
+            <select id="tts-language">
+                <option value="en">English</option>
+                <option value="hi">Hindi</option>
+                <option value="ta">Tamil</option>
+            </select>
+            <select id="tts-voice">
+                <option value="default">Default Voice</option>
+                <option value="en-us-female">English Female</option>
+                <option value="en-us-male">English Male</option>
+            </select>
+            <br><br>
+            <button onclick="generateAndPlayAudio()">Generate & Play Audio</button>
+            <div id="audio-generation-status"></div>
+            <div id="audio-player" class="audio-controls"></div>
+        </div>
+
+        <!-- Test 3: Test Sample Audio -->
+        <div class="test-section">
+            <h3>3. Test Sample Audio</h3>
+            <button onclick="testSampleAudio()">Get Test Audio</button>
+            <div id="sample-audio-status"></div>
+            <div id="sample-audio-player" class="audio-controls"></div>
+        </div>
+
+        <!-- Test 4: Available Voices -->
+        <div class="test-section">
+            <h3>4. Available Voices</h3>
+            <button onclick="getAvailableVoices()">Get Available Voices</button>
+            <div id="voices-list"></div>
+        </div>
+
+        <!-- Test 5: TTS Stats -->
+        <div class="test-section">
+            <h3>5. TTS System Statistics</h3>
+            <button onclick="getTTSStats()">Get TTS Stats</button>
+            <div id="tts-stats"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+
+        async function testTTSHealth() {
+            const statusDiv = document.getElementById('health-status');
+            try {
+                const response = await fetch(`${API_BASE}/api/tts/health`);
+                const data = await response.json();
+                
+                statusDiv.innerHTML = `
+                    <div class="status ${data.status === 'healthy' ? 'success' : 'error'}">
+                        <strong>Status:</strong> ${data.status.toUpperCase()}<br>
+                        <strong>Directory Accessible:</strong> ${data.directory_accessible}<br>
+                        <strong>File Write OK:</strong> ${data.file_write_ok}<br>
+                        <strong>TTS Directory:</strong> ${data.tts_directory}<br>
+                        <strong>Supported Languages:</strong> ${data.supported_languages.join(', ')}
+                    </div>
+                `;
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function generateAndPlayAudio() {
+            const text = document.getElementById('tts-text').value;
+            const language = document.getElementById('tts-language').value;
+            const voice = document.getElementById('tts-voice').value;
+            const statusDiv = document.getElementById('audio-generation-status');
+            const playerDiv = document.getElementById('audio-player');
+
+            if (!text.trim()) {
+                statusDiv.innerHTML = '<div class="status error">Please enter some text!</div>';
+                return;
+            }
+
+            try {
+                statusDiv.innerHTML = '<div class="status">Generating audio...</div>';
+                
+                const response = await fetch(`${API_BASE}/api/tts/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        language: language,
+                        voice: voice
+                    })
+                });
+
+                const data = await response.json();
+                
+                statusDiv.innerHTML = `
+                    <div class="status success">
+                        <strong>Audio Generated!</strong><br>
+                        Duration: ${data.duration.toFixed(1)}s<br>
+                        Language: ${data.language}<br>
+                        Voice: ${data.voice}
+                    </div>
+                `;
+
+                // Create audio player
+                const audioUrl = `${API_BASE}${data.audio_url}`;
+                playerDiv.innerHTML = `
+                    <audio controls style="width: 100%;">
+                        <source src="${audioUrl}" type="audio/mpeg">
+                        Your browser does not support the audio element.
+                    </audio>
+                    <br><small>Audio URL: <a href="${audioUrl}" target="_blank">${audioUrl}</a></small>
+                `;
+
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testSampleAudio() {
+            const statusDiv = document.getElementById('sample-audio-status');
+            const playerDiv = document.getElementById('sample-audio-player');
+
+            try {
+                const response = await fetch(`${API_BASE}/api/tts/test`);
+                const data = await response.json();
+                
+                statusDiv.innerHTML = `
+                    <div class="status success">
+                        <strong>${data.status}</strong><br>
+                        Sample Text: "${data.sample_text}"
+                    </div>
+                `;
+
+                const audioUrl = `${API_BASE}${data.test_audio_url}`;
+                playerDiv.innerHTML = `
+                    <audio controls style="width: 100%;">
+                        <source src="${audioUrl}" type="audio/mpeg">
+                        Your browser does not support the audio element.
+                    </audio>
+                    <br><small>Audio URL: <a href="${audioUrl}" target="_blank">${audioUrl}</a></small>
+                `;
+
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function getAvailableVoices() {
+            const voicesDiv = document.getElementById('voices-list');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/tts/voices`);
+                const data = await response.json();
+                
+                let html = '<div class="status success"><strong>Available Voices:</strong></div>';
+                
+                for (const [language, voices] of Object.entries(data.voices)) {
+                    html += `<h4>${language.toUpperCase()}</h4><ul>`;
+                    voices.forEach(voice => {
+                        html += `
+                            <li>
+                                <strong>${voice.name}</strong> (${voice.gender})
+                                <br><small>ID: ${voice.id}</small>
+                            </li>
+                        `;
+                    });
+                    html += '</ul>';
+                }
+                
+                html += `<p><small>${data.note}</small></p>`;
+                voicesDiv.innerHTML = html;
+
+            } catch (error) {
+                voicesDiv.innerHTML = `<div class="status error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function getTTSStats() {
+            const statsDiv = document.getElementById('tts-stats');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/tts/stats`);
+                const data = await response.json();
+                
+                statsDiv.innerHTML = `
+                    <div class="status success">
+                        <strong>TTS Statistics:</strong><br>
+                        Total Files: ${data.total_files}<br>
+                        Total Size: ${data.total_size_mb} MB<br>
+                        Directory: ${data.directory_path}<br>
+                        File Types: Test(${data.file_types.test}), Sample(${data.file_types.sample}), Generated(${data.file_types.generated})
+                    </div>
+                `;
+
+            } catch (error) {
+                statsDiv.innerHTML = `<div class="status error">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-run health check on page load
+        window.onload = function() {
+            testTTSHealth();
+        };
+    </script>
+</body>
+</html>
