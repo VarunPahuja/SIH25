@@ -61,6 +61,244 @@
             border-radius: 5px;
             overflow-x: auto;
         }
+        
+        /* Microphone Icon Styles */
+        .input-with-mic {
+            position: relative;
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        
+        .text-input-with-mic {
+            width: 100%;
+            padding: 12px 50px 12px 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+        
+        .text-input-with-mic:focus {
+            border-color: #007bff;
+        }
+        
+        .mic-button {
+            position: absolute;
+            right: 8px;
+            background: none;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            margin: 0;
+        }
+        
+        .mic-button:hover {
+            background: #f0f8ff;
+            transform: scale(1.1);
+        }
+        
+        .mic-button.recording {
+            background: #ff4757;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .mic-button.recording:hover {
+            background: #ff3742;
+        }
+        
+        .mic-icon {
+            width: 20px;
+            height: 20px;
+            fill: #007bff;
+            transition: fill 0.3s ease;
+        }
+        
+        .mic-button:hover .mic-icon {
+            fill: #0056b3;
+        }
+        
+        .mic-button.recording .mic-icon {
+            fill: white;
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(255, 71, 87, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 71, 87, 0);
+            }
+        }
+        
+        .mic-status {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .mic-status.recording {
+            color: #ff4757;
+            font-weight: bold;
+        }
+        
+        /* Chat Interface Styles */
+        .chat-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            background: #007bff;
+            color: white;
+            padding: 15px 20px;
+            font-weight: bold;
+        }
+        
+        .chat-messages {
+            height: 300px;
+            overflow-y: auto;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .chat-input-container {
+            padding: 15px 20px;
+            background: #f8f9fa;
+        }
+        
+        .chat-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 12px 50px 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+            resize: none;
+            min-height: 20px;
+            max-height: 100px;
+        }
+        
+        .chat-input:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+        
+        .chat-mic-button {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            margin: 0;
+            z-index: 10;
+        }
+        
+        .chat-mic-button:hover {
+            background: rgba(0, 123, 255, 0.1);
+            transform: scale(1.1);
+        }
+        
+        .chat-mic-button.recording {
+            background: #ff4757;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .chat-mic-button.recording:hover {
+            background: #ff3742;
+        }
+        
+        .chat-mic-icon {
+            width: 18px;
+            height: 18px;
+            fill: #007bff;
+            transition: fill 0.3s ease;
+        }
+        
+        .chat-mic-button:hover .chat-mic-icon {
+            fill: #0056b3;
+        }
+        
+        .chat-mic-button.recording .chat-mic-icon {
+            fill: white;
+        }
+        
+        .chat-send-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .chat-send-button:hover {
+            background: #0056b3;
+            transform: translateY(-1px);
+        }
+        
+        .chat-send-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .speech-status {
+            position: absolute;
+            top: -35px;
+            left: 15px;
+            background: #007bff;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+            z-index: 20;
+        }
+        
+        .speech-status.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .speech-status.error {
+            background: #ff4757;
+        }
+        
+        .speech-status.success {
+            background: #2ed573;
+        }
     </style>
 </head>
 <body>
@@ -78,68 +316,14 @@
         <!-- Test 2: Generate and Play Audio -->
         <div class="test-section">
             <h3>2. Generate and Play Audio</h3>
-            <input type="text" id="tts-text" placeholder="Enter text to convert to speech" value="Hello! This is a test of the campus chatbot TTS system." style="width: 100%; padding: 8px; margin: 10px 0;">
-            <br>
-            <select id="tts-language">
-                <option value="en">English</option>
-                <option value="hi">Hindi</option>
-                <option value="ta">Tamil</option>
-            </select>
-            <select id="tts-voice">
-                <option value="default">Default Voice</option>
-                <option value="en-us-female">English Female</option>
-                <option value="en-us-male">English Male</option>
-            </select>
-            <br><br>
-            <button onclick="generateAndPlayAudio()">Generate & Play Audio</button>
-            <div id="audio-generation-status"></div>
-            <div id="audio-player" class="audio-controls"></div>
-        </div>
-
-        <!-- Test 3: Test Sample Audio -->
-        <div class="test-section">
-            <h3>3. Test Sample Audio</h3>
-            <button onclick="testSampleAudio()">Get Test Audio</button>
-            <div id="sample-audio-status"></div>
-            <div id="sample-audio-player" class="audio-controls"></div>
-        </div>
-
-        <!-- Test 4: Available Voices -->
-        <div class="test-section">
-            <h3>4. Available Voices</h3>
-            <button onclick="getAvailableVoices()">Get Available Voices</button>
-            <div id="voices-list"></div>
-        </div>
-
-        <!-- Test 5: TTS Stats -->
-        <div class="test-section">
-            <h3>5. TTS System Statistics</h3>
-            <button onclick="getTTSStats()">Get TTS Stats</button>
-            <div id="tts-stats"></div>
-        </div>
-    </div>
-
-    <script>
-        const API_BASE = 'http://localhost:8000';
-
-        async function testTTSHealth() {
-            const statusDiv = document.getElementById('health-status');
-            try {
-                const response = await fetch(`${API_BASE}/api/tts/health`);
-                const data = await response.json();
-                
-                statusDiv.innerHTML = `
-                    <div class="status ${data.status === 'healthy' ? 'success' : 'error'}">
-                        <strong>Status:</strong> ${data.status.toUpperCase()}<br>
-                        <strong>Directory Accessible:</strong> ${data.directory_accessible}<br>
-                        <strong>File Write OK:</strong> ${data.file_write_ok}<br>
-                        <strong>TTS Directory:</strong> ${data.tts_directory}<br>
-                        <strong>Supported Languages:</strong> ${data.supported_languages.join(', ')}
-                    </div>
-                `;
-            } catch (error) {
-                statusDiv.innerHTML = `<div class="status error">Error: ${error.message}</div>`;
-            }
+            <div class="input-with-mic">
+                <input type="text" id="tts-text" class="text-input-with-mic" placeholder="Enter text to convert to speech or click the mic to speak" value="Hello! This is a test of the campus chatbot TTS system.">
+                <button class="mic-button" id="mic-button" onclick="toggleSpeechRecognition()" title="Click to start speech recognition">
+                    <svg class="mic-icon" viewBox="0 0 24 24">
+                        <path d="M12 2C13.1 2 14 2.9 14 4V10C14 11.1 13.1 12 12 12S10 11.1 10 10V4C10 2.9 10.9 2 12 2ZM19 10V12C19 15.9 15.9 19 12 19S5 15.9 5 12V10H7V12C7 14.8 9.2 17 12 17S17 14.8 17 12V10H19ZM11 22V20H13V22H11Z"/>
+                    </svg>
+                </button>
+            </div>
         }
 
         async function generateAndPlayAudio() {
@@ -276,9 +460,10 @@
             }
         }
 
-        // Auto-run health check on page load
+        // Auto-run health check on page load and initialize speech recognition
         window.onload = function() {
             testTTSHealth();
+            initializeSpeechRecognition();
         };
     </script>
 </body>
