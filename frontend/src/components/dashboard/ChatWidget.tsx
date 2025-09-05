@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Minimize2, Maximize2, X, Send, Menu, Volume2, AlertCircle, Wifi, WifiOff, Languages } from 'lucide-react';
+import { MessageCircle, Minimize2, Maximize2, X, Send, Menu, Volume2, VolumeX, AlertCircle, Wifi, WifiOff, Languages } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -22,12 +22,15 @@ const ChatWidget = () => {
   const [speechRecognition, setSpeechRecognition] = useState<any>(null);
   const [speechStatus, setSpeechStatus] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState('en-US');
+  const [isTTSEnabled, setIsTTSEnabled] = useState(true);
+  const [ttsVoices, setTTSVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedTTSVoice, setSelectedTTSVoice] = useState<string>('');
 
-  // Language options
+  // Enhanced language options with TTS support
   const languageOptions = [
-    { code: 'en-US', name: 'English', flag: '🇺🇸', initials: 'EN' },
-    { code: 'hi-IN', name: 'हिंदी', flag: '🇮🇳', initials: 'HI' },
-    { code: 'ml-IN', name: 'മലയാളം', flag: '🇮🇳', initials: 'ML' }
+    { code: 'en-US', name: 'English', flag: '🇺🇸', initials: 'EN', ttsLang: 'en-US' },
+    { code: 'hi-IN', name: 'हिंदी', flag: '🇮🇳', initials: 'HI', ttsLang: 'hi-IN' },
+    { code: 'ml-IN', name: 'മലയാളം', flag: '🇮🇳', initials: 'ML', ttsLang: 'ml-IN' }
   ];
 
   // Use our custom chat hook
@@ -45,41 +48,6 @@ const ChatWidget = () => {
     clearError,
     playAudio,
   } = useChat({ userId: 'demo_user_frontend' });
-
-  const handleSendMessage = async () => {
-    if (message.trim() && !isLoading) {
-      await sendChatMessage(message);
-      setMessage('');
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  const handleThreadSelect = async (conversationId: string) => {
-    await loadThread(conversationId);
-    if (isMobile && showSidebar) {
-      setShowSidebar(false);
-    }
-  };
-
-  const handleNewChat = async () => {
-    await createNewThread();
-    if (isMobile && showSidebar) {
-      setShowSidebar(false);
-    }
-  };
-
-  const handleClearChat = () => {
-    clearChat();
-    if (isMobile && showSidebar) {
-      setShowSidebar(false);
-    }
-  };
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -119,6 +87,132 @@ const ChatWidget = () => {
       setSpeechRecognition(recognition);
     }
   }, [selectedLanguage]); // Re-initialize when language changes
+
+  // Initialize TTS Voices
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      setTTSVoices(voices);
+      
+      // Auto-select voice based on selected language
+      const currentLang = languageOptions.find(lang => lang.code === selectedLanguage);
+      if (currentLang) {
+        const preferredVoice = voices.find(voice => 
+          voice.lang.startsWith(currentLang.ttsLang.split('-')[0])
+        );
+        if (preferredVoice) {
+          setSelectedTTSVoice(preferredVoice.name);
+        }
+      }
+    };
+
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }, [selectedLanguage]);
+
+  // Text-to-Speech function
+  const speakText = (text: string) => {
+    if (!isTTSEnabled || !text.trim()) return;
+
+    // Stop any ongoing speech
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Set voice based on selection or language
+    if (selectedTTSVoice) {
+      const voice = ttsVoices.find(v => v.name === selectedTTSVoice);
+      if (voice) utterance.voice = voice;
+    } else {
+      // Fallback to language-based voice selection
+      const currentLang = languageOptions.find(lang => lang.code === selectedLanguage);
+      if (currentLang) {
+        const voice = ttsVoices.find(v => v.lang.startsWith(currentLang.ttsLang.split('-')[0]));
+        if (voice) utterance.voice = voice;
+      }
+    }
+
+    // Set speech properties
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 0.8;
+
+    // Error handling
+    utterance.onerror = (event) => {
+      console.error('TTS Error:', event.error);
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Enhanced handleSendMessage with TTS for bot responses
+  const handleSendMessage = async () => {
+    if (message.trim() && !isLoading) {
+      await sendChatMessage(message);
+      setMessage('');
+    }
+  };
+
+  // Remove auto-speak useEffect
+  // useEffect(() => {
+  //   if (messages.length > 0) {
+  //     const lastMessage = messages[messages.length - 1];
+  //     if (lastMessage.sender === 'bot' && isTTSEnabled) {
+  //       setTimeout(() => speakText(lastMessage.text), 500);
+  //     }
+  //   }
+  // }, [messages, isTTSEnabled]);
+
+  // Enhanced playAudio function to handle both TTS and audio URLs
+  const handlePlayAudio = (msg: any) => {
+    if (msg.audioUrl) {
+      // For server-generated audio, create audio element and play
+      const audio = new Audio(msg.audioUrl);
+      audio.play().catch(error => {
+        console.error('Error playing audio:', error);
+        // Fallback to TTS if audio fails
+        speakText(msg.text);
+      });
+    } else if (msg.sender === 'bot') {
+      // Use TTS for bot messages without audio URLs
+      speakText(msg.text);
+    }
+  };
+
+  const toggleTTS = () => {
+    setIsTTSEnabled(!isTTSEnabled);
+    if (!isTTSEnabled) {
+      window.speechSynthesis.cancel();
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const handleThreadSelect = async (conversationId: string) => {
+    await loadThread(conversationId);
+    if (isMobile && showSidebar) {
+      setShowSidebar(false);
+    }
+  };
+
+  const handleNewChat = async () => {
+    await createNewThread();
+    if (isMobile && showSidebar) {
+      setShowSidebar(false);
+    }
+  };
+
+  const handleClearChat = () => {
+    clearChat();
+    if (isMobile && showSidebar) {
+      setShowSidebar(false);
+    }
+  };
 
   const toggleSpeechRecognition = () => {
     if (!speechRecognition) {
@@ -262,6 +356,20 @@ const ChatWidget = () => {
                   </AvatarFallback>
                 </Avatar>
                 <h2 className="text-xl font-semibold">Manny - Your AI Assistant</h2>
+                
+                {/* TTS Toggle */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleTTS}
+                  className={cn(
+                    "hover:bg-secondary transition-colors duration-200",
+                    isTTSEnabled ? "text-green-600" : "text-gray-400"
+                  )}
+                  title={isTTSEnabled ? 'Disable text-to-speech' : 'Enable text-to-speech'}
+                >
+                  {isTTSEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </Button>
               </div>
               
               <div className="flex items-center space-x-2">
@@ -343,16 +451,17 @@ const ChatWidget = () => {
                       )}
                       
                       {/* Audio Player */}
-                      {msg.audioUrl && (
+                      {msg.sender === 'bot' && (
                         <div className="mt-3">
                           <Button
-                            onClick={() => playAudio(msg.audioUrl!)}
+                            onClick={() => handlePlayAudio(msg)}
                             variant="ghost"
                             size="sm"
                             className="h-8 px-2 text-xs"
+                            disabled={!isTTSEnabled && !msg.audioUrl}
                           >
                             <Volume2 className="w-3 h-3 mr-1" />
-                            Play Audio
+                            {msg.audioUrl ? 'Play Audio' : 'Speak Text'}
                           </Button>
                         </div>
                       )}
@@ -428,6 +537,27 @@ const ChatWidget = () => {
                   </Button>
                 </div>
 
+                {/* TTS Voice Selector */}
+                {isTTSEnabled && ttsVoices.length > 0 && (
+                  <select
+                    value={selectedTTSVoice}
+                    onChange={(e) => setSelectedTTSVoice(e.target.value)}
+                    className="text-xs h-7 px-2 border border-border rounded bg-background"
+                  >
+                    <option value="">Auto Voice</option>
+                    {ttsVoices
+                      .filter(voice => {
+                        const currentLang = languageOptions.find(lang => lang.code === selectedLanguage);
+                        return currentLang && voice.lang.startsWith(currentLang.ttsLang.split('-')[0]);
+                      })
+                      .map((voice) => (
+                        <option key={voice.name} value={voice.name}>
+                          {voice.name} ({voice.lang})
+                        </option>
+                      ))}
+                  </select>
+                )}
+
                 {/* Speech Status */}
                 {speechStatus && (
                   <div className={cn(
@@ -450,9 +580,24 @@ const ChatWidget = () => {
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       onKeyPress={handleKeyPress}
-                      className="h-12 pr-20"
+                      className="h-12 pr-24"
                       disabled={!isConnected || isLoading}
                     />
+                    
+                    {/* TTS Status Indicator */}
+                    <div className="absolute right-16 top-1/2 transform -translate-y-1/2">
+                      <button
+                        onClick={toggleTTS}
+                        className={cn(
+                          "p-1 rounded-full transition-all duration-200",
+                          isTTSEnabled ? "text-green-600 hover:bg-green-100" : "text-gray-400 hover:bg-gray-100"
+                        )}
+                        title={isTTSEnabled ? 'TTS enabled' : 'TTS disabled'}
+                        type="button"
+                      >
+                        {isTTSEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+                      </button>
+                    </div>
                     
                     {/* Language Selector */}
                     <select
@@ -594,16 +739,17 @@ const ChatWidget = () => {
                   )}>
                     <div>{msg.text}</div>
                     
-                    {/* Audio Button for Mobile */}
-                    {msg.audioUrl && (
+                    {/* Enhanced Audio Button for Mobile - Always show for bot messages */}
+                    {msg.sender === 'bot' && (
                       <Button
-                        onClick={() => playAudio(msg.audioUrl!)}
+                        onClick={() => handlePlayAudio(msg)}
                         variant="ghost"
                         size="sm"
                         className="h-6 px-1 mt-2 text-xs"
+                        disabled={!isTTSEnabled && !msg.audioUrl}
                       >
                         <Volume2 className="w-3 h-3 mr-1" />
-                        Audio
+                        {msg.audioUrl ? 'Audio' : 'Speak'}
                       </Button>
                     )}
                     
@@ -667,9 +813,22 @@ const ChatWidget = () => {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  className="h-10 text-sm pr-16"
+                  className="h-10 text-sm pr-20"
                   disabled={!isConnected || isLoading}
                 />
+                
+                {/* TTS Status */}
+                <button
+                  onClick={toggleTTS}
+                  className={cn(
+                    "absolute right-12 top-1/2 transform -translate-y-1/2 p-0.5 rounded-full transition-colors duration-200",
+                    isTTSEnabled ? "text-green-600" : "text-gray-400"
+                  )}
+                  title={isTTSEnabled ? 'TTS enabled' : 'TTS disabled'}
+                  type="button"
+                >
+                  {isTTSEnabled ? <Volume2 className="w-2 h-2" /> : <VolumeX className="w-2 h-2" />}
+                </button>
                 
                 {/* Language Selector */}
                 <select
@@ -801,16 +960,17 @@ const ChatWidget = () => {
                   )}>
                     <div>{msg.text}</div>
                     
-                    {/* Audio Button */}
-                    {msg.audioUrl && (
+                    {/* Enhanced Audio Button - Always show for bot messages */}
+                    {msg.sender === 'bot' && (
                       <Button
-                        onClick={() => playAudio(msg.audioUrl!)}
+                        onClick={() => handlePlayAudio(msg)}
                         variant="ghost"
                         size="sm"
                         className="h-6 px-1 mt-2 text-xs"
+                        disabled={!isTTSEnabled && !msg.audioUrl}
                       >
                         <Volume2 className="w-3 h-3 mr-1" />
-                        Audio
+                        {msg.audioUrl ? 'Audio' : 'Speak'}
                       </Button>
                     )}
                     
@@ -885,6 +1045,19 @@ const ChatWidget = () => {
                   disabled={!isConnected || isLoading}
                 />
                 
+                {/* TTS Status */}
+                <button
+                  onClick={toggleTTS}
+                  className={cn(
+                    "absolute right-10 top-1/2 transform -translate-y-1/2 p-0.5 rounded-full transition-colors duration-200",
+                    isTTSEnabled ? "text-green-600" : "text-gray-400"
+                  )}
+                  title={isTTSEnabled ? 'TTS enabled' : 'TTS disabled'}
+                  type="button"
+                >
+                  {isTTSEnabled ? <Volume2 className="w-2 h-2" /> : <VolumeX className="w-2 h-2" />}
+                </button>
+                
                 {/* Language Selector */}
                 <select
                   value={selectedLanguage}
@@ -903,7 +1076,7 @@ const ChatWidget = () => {
                 <button
                   onClick={toggleSpeechRecognition}
                   className={cn(
-                    "absolute right-1 top-1/2 transform -translate-y-1/2 p-1 rounded-full transition-all duration-300",
+                    "absolute right-2 top-1/2 transform -translate-y-1/2 p-1 rounded-full transition-all duration-300",
                     isRecording
                       ? 'bg-red-500 text-white animate-pulse'
                       : 'hover:bg-gray-100 text-gray-500 hover:text-blue-500'
