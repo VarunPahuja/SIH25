@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Minimize2, Maximize2, X, Send, Menu, Volume2, AlertCircle, Wifi, WifiOff } from 'lucide-react';
+import { MessageCircle, Minimize2, Maximize2, X, Send, Menu, Volume2, AlertCircle, Wifi, WifiOff, Languages } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -21,6 +21,14 @@ const ChatWidget = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [speechRecognition, setSpeechRecognition] = useState<any>(null);
   const [speechStatus, setSpeechStatus] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState('en-US');
+
+  // Language options
+  const languageOptions = [
+    { code: 'en-US', name: 'English', flag: '🇺🇸', initials: 'EN' },
+    { code: 'hi-IN', name: 'हिंदी', flag: '🇮🇳', initials: 'HI' },
+    { code: 'ml-IN', name: 'മലയാളം', flag: '🇮🇳', initials: 'ML' }
+  ];
 
   // Use our custom chat hook
   const {
@@ -81,11 +89,11 @@ const ChatWidget = () => {
       
       recognition.continuous = false;
       recognition.interimResults = false;
-      recognition.lang = 'en-US';
+      recognition.lang = selectedLanguage; // Use selected language
       
       recognition.onstart = () => {
         setIsRecording(true);
-        setSpeechStatus('Listening...');
+        setSpeechStatus(`Listening in ${languageOptions.find(lang => lang.code === selectedLanguage)?.name}...`);
       };
       
       recognition.onresult = (event: any) => {
@@ -110,7 +118,7 @@ const ChatWidget = () => {
       
       setSpeechRecognition(recognition);
     }
-  }, []);
+  }, [selectedLanguage]); // Re-initialize when language changes
 
   const toggleSpeechRecognition = () => {
     if (!speechRecognition) {
@@ -122,6 +130,8 @@ const ChatWidget = () => {
     if (isRecording) {
       speechRecognition.stop();
     } else {
+      // Update language before starting
+      speechRecognition.lang = selectedLanguage;
       speechRecognition.start();
     }
   };
@@ -440,9 +450,24 @@ const ChatWidget = () => {
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       onKeyPress={handleKeyPress}
-                      className="h-12 pr-12"
+                      className="h-12 pr-20"
                       disabled={!isConnected || isLoading}
                     />
+                    
+                    {/* Language Selector */}
+                    <select
+                      value={selectedLanguage}
+                      onChange={(e) => setSelectedLanguage(e.target.value)}
+                      className="absolute right-12 top-1/2 transform -translate-y-1/2 text-xs bg-transparent border-none focus:outline-none cursor-pointer text-gray-600 hover:text-blue-500"
+                      title="Select language"
+                      disabled={!isConnected || isLoading}
+                    >
+                      {languageOptions.map((lang) => (
+                        <option key={lang.code} value={lang.code}>
+                          {lang.flag} {lang.initials}
+                        </option>
+                      ))}
+                    </select>
                     
                     {/* Mic Button */}
                     <button
@@ -453,7 +478,7 @@ const ChatWidget = () => {
                           ? 'bg-red-500 text-white animate-pulse shadow-lg'
                           : 'hover:bg-gray-100 text-gray-500 hover:text-blue-500'
                       )}
-                      title={isRecording ? 'Stop recording' : 'Start speech recognition'}
+                      title={`${isRecording ? 'Stop recording' : 'Start speech recognition'} (${languageOptions.find(lang => lang.code === selectedLanguage)?.name})`}
                       type="button"
                       disabled={!isConnected || isLoading}
                     >
@@ -642,9 +667,23 @@ const ChatWidget = () => {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  className="h-10 text-sm pr-10"
+                  className="h-10 text-sm pr-16"
                   disabled={!isConnected || isLoading}
                 />
+                
+                {/* Language Selector */}
+                <select
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  className="absolute right-8 top-1/2 transform -translate-y-1/2 text-xs bg-transparent border-none focus:outline-none cursor-pointer text-gray-600"
+                  disabled={!isConnected || isLoading}
+                >
+                  {languageOptions.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.flag} {lang.initials}
+                    </option>
+                  ))}
+                </select>
                 
                 {/* Mic Button */}
                 <button
@@ -655,7 +694,7 @@ const ChatWidget = () => {
                       ? 'bg-red-500 text-white animate-pulse'
                       : 'hover:bg-gray-100 text-gray-500 hover:text-blue-500'
                   )}
-                  title={isRecording ? 'Stop recording' : 'Start speech recognition'}
+                  title={`${isRecording ? 'Stop recording' : 'Start speech recognition'} (${languageOptions.find(lang => lang.code === selectedLanguage)?.name})`}
                   type="button"
                   disabled={!isConnected || isLoading}
                 >
@@ -842,9 +881,23 @@ const ChatWidget = () => {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  className="h-8 text-sm pr-8"
+                  className="h-8 text-sm pr-12"
                   disabled={!isConnected || isLoading}
                 />
+                
+                {/* Language Selector */}
+                <select
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  className="absolute right-6 top-1/2 transform -translate-y-1/2 text-xs bg-transparent border-none focus:outline-none cursor-pointer text-gray-600"
+                  disabled={!isConnected || isLoading}
+                >
+                  {languageOptions.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.flag} {lang.initials}
+                    </option>
+                  ))}
+                </select>
                 
                 {/* Mic Button */}
                 <button
@@ -855,7 +908,7 @@ const ChatWidget = () => {
                       ? 'bg-red-500 text-white animate-pulse'
                       : 'hover:bg-gray-100 text-gray-500 hover:text-blue-500'
                   )}
-                  title={isRecording ? 'Stop recording' : 'Start speech recognition'}
+                  title={`${isRecording ? 'Stop recording' : 'Start speech recognition'} (${languageOptions.find(lang => lang.code === selectedLanguage)?.name})`}
                   type="button"
                   disabled={!isConnected || isLoading}
                 >
