@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Minimize2, Maximize2, X, Send, Menu, Volume2, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,9 @@ const ChatWidget = () => {
   const [message, setMessage] = useState('');
   const [showTooltip, setShowTooltip] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
+  const [speechRecognition, setSpeechRecognition] = useState<any>(null);
+  const [speechStatus, setSpeechStatus] = useState('');
 
   // Use our custom chat hook
   const {
@@ -67,6 +70,59 @@ const ChatWidget = () => {
     clearChat();
     if (isMobile && showSidebar) {
       setShowSidebar(false);
+    }
+  };
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+      
+      recognition.onstart = () => {
+        setIsRecording(true);
+        setSpeechStatus('Listening...');
+      };
+      
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setMessage(prev => prev + (prev ? ' ' : '') + transcript);
+        setSpeechStatus('Text captured!');
+        setTimeout(() => setSpeechStatus(''), 2000);
+      };
+      
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setSpeechStatus('Error: Could not recognize speech');
+        setTimeout(() => setSpeechStatus(''), 3000);
+      };
+      
+      recognition.onend = () => {
+        setIsRecording(false);
+        if (speechStatus === 'Listening...') {
+          setSpeechStatus('');
+        }
+      };
+      
+      setSpeechRecognition(recognition);
+    }
+  }, []);
+
+  const toggleSpeechRecognition = () => {
+    if (!speechRecognition) {
+      setSpeechStatus('Speech recognition not supported');
+      setTimeout(() => setSpeechStatus(''), 3000);
+      return;
+    }
+
+    if (isRecording) {
+      speechRecognition.stop();
+    } else {
+      speechRecognition.start();
     }
   };
 
@@ -333,15 +389,6 @@ const ChatWidget = () => {
             {/* Message Input */}
             <div className="border-t border-border p-4 bg-card">
               <div className="max-w-4xl mx-auto">
-                {!isConnected && (
-                  <Alert className="mb-4 border-red-200 bg-red-50">
-                    <WifiOff className="h-4 w-4" />
-                    <AlertDescription>
-                      Not connected to backend server. Please check if the server is running on http://localhost:8000
-                    </AlertDescription>
-                  </Alert>
-                )}
-                
                 {/* Quick Actions */}
                 <div className="flex flex-wrap gap-2 mb-3">
                   <Button
@@ -371,16 +418,55 @@ const ChatWidget = () => {
                   </Button>
                 </div>
 
+                {/* Speech Status */}
+                {speechStatus && (
+                  <div className={cn(
+                    "mb-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300",
+                    speechStatus.includes('Error') 
+                      ? 'bg-red-100 text-red-700 border border-red-200' 
+                      : speechStatus.includes('captured')
+                      ? 'bg-green-100 text-green-700 border border-green-200'
+                      : 'bg-blue-100 text-blue-700 border border-blue-200'
+                  )}>
+                    {speechStatus}
+                  </div>
+                )}
+
                 <div className="flex items-center space-x-3">
-                  <Input
-                    type="text"
-                    placeholder={isConnected ? "Ask Manny anything about SLCM..." : "Connect to backend to start chatting..."}
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    className="flex-1 h-12"
-                    disabled={!isConnected || isLoading}
-                  />
+                  <div className="relative flex-1">
+                    <Input
+                      type="text"
+                      placeholder={isConnected ? "Ask Manny anything about SLCM..." : "Connect to backend to start chatting..."}
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      className="h-12 pr-12"
+                      disabled={!isConnected || isLoading}
+                    />
+                    
+                    {/* Mic Button */}
+                    <button
+                      onClick={toggleSpeechRecognition}
+                      className={cn(
+                        "absolute right-3 top-1/2 transform -translate-y-1/2 p-2 rounded-full transition-all duration-300",
+                        isRecording
+                          ? 'bg-red-500 text-white animate-pulse shadow-lg'
+                          : 'hover:bg-gray-100 text-gray-500 hover:text-blue-500'
+                      )}
+                      title={isRecording ? 'Stop recording' : 'Start speech recognition'}
+                      type="button"
+                      disabled={!isConnected || isLoading}
+                    >
+                      <svg 
+                        className="w-4 h-4" 
+                        viewBox="0 0 24 24" 
+                        fill="currentColor"
+                      >
+                        <path d="M12 2C13.1 2 14 2.9 14 4V10C14 11.1 13.1 12 12 12S10 11.1 10 10V4C10 2.9 10.9 2 12 2ZM19 10V12C19 15.9 15.9 19 12 19S5 15.9 5 12V10H7V12C7 14.8 9.2 17 12 17S17 14.8 17 12V10H19ZM11 22V20H13V22H11Z"/>
+                      </svg>
+                    </button>
+                  </div>
+                  
                   <Button
                     onClick={handleSendMessage}
                     disabled={!message.trim() || !isConnected || isLoading}
@@ -534,16 +620,55 @@ const ChatWidget = () => {
 
           {/* Message Input */}
           <div className="p-4 border-t border-border">
+            {/* Speech Status */}
+            {speechStatus && (
+              <div className={cn(
+                "mb-3 px-2 py-1 rounded-full text-xs font-medium transition-all duration-300",
+                speechStatus.includes('Error') 
+                  ? 'bg-red-100 text-red-700' 
+                  : speechStatus.includes('captured')
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-blue-100 text-blue-700'
+              )}>
+                {speechStatus}
+              </div>
+            )}
+            
             <div className="flex items-center space-x-2">
-              <Input
-                type="text"
-                placeholder={isConnected ? "Type your message..." : "Not connected..."}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                className="flex-1 h-10 text-sm"
-                disabled={!isConnected || isLoading}
-              />
+              <div className="relative flex-1">
+                <Input
+                  type="text"
+                  placeholder={isConnected ? "Type your message..." : "Not connected..."}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  className="h-10 text-sm pr-10"
+                  disabled={!isConnected || isLoading}
+                />
+                
+                {/* Mic Button */}
+                <button
+                  onClick={toggleSpeechRecognition}
+                  className={cn(
+                    "absolute right-2 top-1/2 transform -translate-y-1/2 p-1 rounded-full transition-all duration-300",
+                    isRecording
+                      ? 'bg-red-500 text-white animate-pulse'
+                      : 'hover:bg-gray-100 text-gray-500 hover:text-blue-500'
+                  )}
+                  title={isRecording ? 'Stop recording' : 'Start speech recognition'}
+                  type="button"
+                  disabled={!isConnected || isLoading}
+                >
+                  <svg 
+                    className="w-3 h-3" 
+                    viewBox="0 0 24 24" 
+                    fill="currentColor"
+                  >
+                    <path d="M12 2C13.1 2 14 2.9 14 4V10C14 11.1 13.1 12 12 12S10 11.1 10 10V4C10 2.9 10.9 2 12 2ZM19 10V12C19 15.9 15.9 19 12 19S5 15.9 5 12V10H7V12C7 14.8 9.2 17 12 17S17 14.8 17 12V10H19ZM11 22V20H13V22H11Z"/>
+                  </svg>
+                </button>
+              </div>
+              
               <Button
                 onClick={handleSendMessage}
                 disabled={!message.trim() || !isConnected || isLoading}
@@ -695,16 +820,55 @@ const ChatWidget = () => {
 
           {/* Message Input */}
           <div className="p-3 border-t border-border">
+            {/* Speech Status */}
+            {speechStatus && (
+              <div className={cn(
+                "mb-2 px-2 py-1 rounded-full text-xs font-medium transition-all duration-300",
+                speechStatus.includes('Error') 
+                  ? 'bg-red-100 text-red-700' 
+                  : speechStatus.includes('captured')
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-blue-100 text-blue-700'
+              )}>
+                {speechStatus}
+              </div>
+            )}
+            
             <div className="flex items-center space-x-2">
-              <Input
-                type="text"
-                placeholder={isConnected ? "Type your message..." : "Not connected..."}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                className="flex-1 h-8 text-sm"
-                disabled={!isConnected || isLoading}
-              />
+              <div className="relative flex-1">
+                <Input
+                  type="text"
+                  placeholder={isConnected ? "Type your message..." : "Not connected..."}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  className="h-8 text-sm pr-8"
+                  disabled={!isConnected || isLoading}
+                />
+                
+                {/* Mic Button */}
+                <button
+                  onClick={toggleSpeechRecognition}
+                  className={cn(
+                    "absolute right-1 top-1/2 transform -translate-y-1/2 p-1 rounded-full transition-all duration-300",
+                    isRecording
+                      ? 'bg-red-500 text-white animate-pulse'
+                      : 'hover:bg-gray-100 text-gray-500 hover:text-blue-500'
+                  )}
+                  title={isRecording ? 'Stop recording' : 'Start speech recognition'}
+                  type="button"
+                  disabled={!isConnected || isLoading}
+                >
+                  <svg 
+                    className="w-3 h-3" 
+                    viewBox="0 0 24 24" 
+                    fill="currentColor"
+                  >
+                    <path d="M12 2C13.1 2 14 2.9 14 4V10C14 11.1 13.1 12 12 12S10 11.1 10 10V4C10 2.9 10.9 2 12 2ZM19 10V12C19 15.9 15.9 19 12 19S5 15.9 5 12V10H7V12C7 14.8 9.2 17 12 17S17 14.8 17 12V10H19ZM11 22V20H13V22H11Z"/>
+                  </svg>
+                </button>
+              </div>
+              
               <Button
                 onClick={handleSendMessage}
                 disabled={!message.trim() || !isConnected || isLoading}
